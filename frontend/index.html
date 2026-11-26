@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Duetify</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/opensheetmusicdisplay@1.8.9/build/opensheetmusicdisplay.min.js"></script>
+<style>
+  :root {
+    --paper: #faf6ef; --card: #ffffff; --ink: #1d1a16; --muted: #6f675d;
+    --line: #e8e0d3; --accent: #8c2f39; --accent-soft: #f6e9ea; --warn: #9a6a00; --warn-soft: #fdf5e1;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.5 Inter, system-ui, sans-serif; }
+  /* faint staff lines in the header */
+  header {
+    padding: 3rem 1.5rem 2rem; text-align: center;
+    background: repeating-linear-gradient(to bottom, transparent 0 13px, var(--line) 13px 14px) center 40px / 100% 70px no-repeat;
+  }
+  .logo { font-family: Fraunces, serif; font-size: 3rem; font-weight: 700; margin: 0; letter-spacing: -.02em; }
+  .logo span { color: var(--accent); }
+  .tag { color: var(--muted); margin: .4rem 0 0; font-size: 1.05rem; }
+  main { max-width: 1040px; margin: 0 auto; padding: 0 1.25rem 4rem; display: grid; grid-template-columns: 1fr 260px; gap: 1.5rem; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.25rem; }
+  .step { font-size: .75rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-bottom: .6rem; }
+  h2 { font-family: Fraunces, serif; font-size: 1.25rem; margin: 0 0 1rem; }
+
+  .parts { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 600px) { .parts { grid-template-columns: 1fr; } }
+  .part h3 { margin: 0 0 .6rem; font-size: .95rem; }
+  .part h3 small { color: var(--muted); font-weight: 400; }
+
+  .drop {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .3rem;
+    min-height: 120px; border: 2px dashed var(--line); border-radius: 12px; cursor: pointer;
+    text-align: center; padding: 1rem; transition: .15s; color: var(--muted);
+  }
+  .drop:hover, .drop.over { border-color: var(--accent); background: var(--accent-soft); }
+  .drop.has { border-style: solid; border-color: var(--accent); color: var(--ink); background: var(--accent-soft); }
+  .drop .icon { font-size: 1.6rem; }
+  .drop input { display: none; }
+  .drop .name { font-weight: 600; word-break: break-all; }
+
+  .seg { display: inline-flex; background: var(--paper); border: 1px solid var(--line); border-radius: 999px; padding: 3px; margin-top: .75rem; }
+  .seg input { display: none; }
+  .seg label { padding: .35rem .9rem; border-radius: 999px; cursor: pointer; font-size: .9rem; color: var(--muted); }
+  .seg input:checked + label { background: var(--ink); color: #fff; }
+
+  .settings { display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: end; margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--line); }
+  .settings .lbl { display: block; font-size: .8rem; font-weight: 600; color: var(--muted); margin-bottom: .1rem; }
+  .settings .seg { margin-top: 0; }
+  input[type=number] { width: 110px; padding: .45rem .7rem; border: 1px solid var(--line); border-radius: 10px; font: inherit; background: var(--paper); }
+
+  .actions { display: flex; gap: .75rem; margin-top: 1.25rem; flex-wrap: wrap; }
+  button { font: inherit; font-weight: 600; border-radius: 10px; padding: .7rem 1.4rem; cursor: pointer; border: 1px solid var(--ink); }
+  .primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .primary:hover { filter: brightness(1.1); }
+  .primary:disabled { opacity: .6; cursor: wait; }
+  .ghost { background: transparent; color: var(--ink); }
+  .ghost:disabled { opacity: .35; cursor: not-allowed; }
+
+  #status { display: none; align-items: center; gap: .6rem; margin-top: 1rem; padding: .8rem 1rem; border-radius: 10px; background: var(--paper); }
+  #status.show { display: flex; }
+  #status.err { background: #fdecec; color: #a3121f; }
+  .spin { width: 16px; height: 16px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: s 1s linear infinite; }
+  @keyframes s { to { transform: rotate(360deg); } }
+
+  #result { display: none; margin-top: 1.5rem; }
+  #result.show { display: block; }
+  .chips { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
+  .chip { background: var(--paper); border: 1px solid var(--line); border-radius: 999px; padding: .25rem .75rem; font-size: .85rem; }
+  .chip.red::before { content: "●"; color: #d62728; margin-right: .35rem; }
+  #warnings { list-style: none; margin: 0 0 1rem; padding: .75rem 1rem; background: var(--warn-soft); color: var(--warn); border-radius: 10px; font-size: .9rem; }
+  #warnings:empty { display: none; }
+  #warnings li + li { margin-top: .25rem; }
+  #sheet { border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; background: #fff; }
+
+  aside h2 { font-size: 1.05rem; }
+  #history { list-style: none; margin: 0; padding: 0; }
+  #history li { padding: .6rem .7rem; border-radius: 10px; cursor: pointer; border: 1px solid transparent; }
+  #history li:hover { background: var(--paper); border-color: var(--line); }
+  #history .h-name { font-weight: 600; font-size: .9rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #history .h-when { font-size: .78rem; color: var(--muted); }
+  .empty { color: var(--muted); font-size: .9rem; }
+  footer { text-align: center; color: var(--muted); font-size: .8rem; padding-bottom: 2rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1 class="logo">Duet<span>ify</span></h1>
+  <p class="tag">Record each part. Get one duet score you can actually play.</p>
+</header>
+
+<main>
+  <section>
+    <form id="f" class="card">
+      <div class="step">Step 1 · Upload your parts</div>
+      <div class="parts">
+        <div class="part">
+          <h3>Part 1</h3>
+          <label class="drop" id="d1">
+            <input type="file" name="part1" accept="audio/*" required>
+            <span class="icon">🎻</span>
+            <span class="name">Drop audio or click</span>
+            <small>wav, mp3, m4a · up to 90s</small>
+          </label>
+          <div class="seg">
+            <input type="radio" name="inst1" value="violin" id="i1v" checked><label for="i1v">Violin</label>
+            <input type="radio" name="inst1" value="piano" id="i1p"><label for="i1p">Piano</label>
+          </div>
+        </div>
+        <div class="part">
+          <h3>Part 2 <small>· optional, for duets</small></h3>
+          <label class="drop" id="d2">
+            <input type="file" name="part2" accept="audio/*">
+            <span class="icon">🎹</span>
+            <span class="name">Drop audio or click</span>
+            <small>record from beat 1 like part 1</small>
+          </label>
+          <div class="seg">
+            <input type="radio" name="inst2" value="piano" id="i2p" checked><label for="i2p">Piano</label>
+            <input type="radio" name="inst2" value="violin" id="i2v"><label for="i2v">Violin</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings">
+        <div>
+          <span class="lbl">Step 2 · Level</span>
+          <div class="seg">
+            <input type="radio" name="level" value="normal" id="ln" checked><label for="ln">Normal</label>
+            <input type="radio" name="level" value="simple" id="ls"><label for="ls">Simple</label>
+          </div>
+        </div>
+        <div>
+          <span class="lbl">Tempo (BPM)</span>
+          <input type="number" name="bpm" min="30" max="240" placeholder="Auto">
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="primary" id="go">Make sheet</button>
+        <button type="button" class="ghost" id="dl" disabled>Download MusicXML</button>
+      </div>
+      <div id="status"></div>
+    </form>
+
+    <div id="result" class="card">
+      <div class="step">Your sheet</div>
+      <div class="chips" id="chips"></div>
+      <ul id="warnings"></ul>
+      <div id="sheet"></div>
+    </div>
+  </section>
+
+  <aside class="card">
+    <h2>Recent sheets</h2>
+    <ul id="history"></ul>
+  </aside>
+</main>
+<footer>Use your own recordings or public-domain music. Red notes = the AI is unsure, please check them.</footer>
+
+<script>
+const $ = id => document.getElementById(id);
+const osmd = new opensheetmusicdisplay.OpenSheetMusicDisplay("sheet", { autoResize: true, drawTitle: false });
+let current = null;
+
+// drop zones: show file name, support drag & drop
+for (const id of ["d1", "d2"]) {
+  const zone = $(id), input = zone.querySelector("input"), name = zone.querySelector(".name");
+  const update = () => {
+    const f = input.files[0];
+    name.textContent = f ? f.name : "Drop audio or click";
+    zone.classList.toggle("has", !!f);
+  };
+  input.onchange = update;
+  zone.ondragover = e => { e.preventDefault(); zone.classList.add("over"); };
+  zone.ondragleave = () => zone.classList.remove("over");
+  zone.ondrop = e => { e.preventDefault(); zone.classList.remove("over"); input.files = e.dataTransfer.files; update(); };
+}
+
+function status(msg, type = "") {
+  const s = $("status");
+  s.className = "show " + type;
+  s.innerHTML = (type === "busy" ? '<div class="spin"></div>' : "") + `<span>${msg}</span>`;
+}
+
+function loadHistory() { try { return JSON.parse(localStorage.getItem("duetify") || "[]"); } catch { return []; } }
+function saveHistory(h) { try { localStorage.setItem("duetify", JSON.stringify(h.slice(0, 10))); } catch {} }
+function renderHistory() {
+  const h = loadHistory(), ul = $("history");
+  ul.innerHTML = h.length ? "" : '<li class="empty">Your sheets will show up here.</li>';
+  h.forEach(item => {
+    const li = document.createElement("li");
+    li.innerHTML = `<span class="h-name"></span><span class="h-when">${item.when}</span>`;
+    li.querySelector(".h-name").textContent = item.name;
+    li.onclick = () => show(item.result);
+    ul.appendChild(li);
+  });
+}
+
+async function show(result) {
+  current = result;
+  const red = (result.warnings.join(" ").match(/(\d+) note\(s\) are low confidence/) || [])[1];
+  $("chips").innerHTML =
+    `<span class="chip">${result.note_count} notes</span><span class="chip">${result.bpm} BPM</span>` +
+    (red ? `<span class="chip red">${red} to check</span>` : "");
+  $("warnings").innerHTML = result.warnings.map(w => `<li>${w}</li>`).join("");
+  $("result").classList.add("show");
+  await osmd.load(result.musicxml);
+  osmd.render();
+  $("dl").disabled = false;
+  $("result").scrollIntoView({ behavior: "smooth" });
+}
+
+$("f").onsubmit = async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  if (!fd.get("bpm")) fd.delete("bpm");
+  if (!fd.get("part2").size) fd.delete("part2");
+  $("go").disabled = true;
+  status("Listening to your recording… first run takes up to a minute", "busy");
+  const t0 = performance.now();
+  try {
+    const r = await fetch("/api/transcribe", { method: "POST", body: fd });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || "Something went wrong");
+    await show(data);
+    status(`Done in ${((performance.now() - t0) / 1000).toFixed(1)}s`);
+    const h = loadHistory();
+    h.unshift({ name: fd.get("part1").name, when: new Date().toLocaleString(), result: data });
+    saveHistory(h); renderHistory();
+  } catch (err) {
+    status(err.message, "err");
+  } finally {
+    $("go").disabled = false;
+  }
+};
+
+$("dl").onclick = () => {
+  const blob = new Blob([current.musicxml], { type: "application/vnd.recordare.musicxml+xml" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "duetify.musicxml"; a.click();
+};
+renderHistory();
+</script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+name,audio,reference_midi,instrument
+easy_violin,eval/data/easy_violin.wav,eval/data/easy_violin.mid,violin
+easy_piano,eval/data/easy_piano.wav,eval/data/easy_piano.mid,piano
+repeat_easy_violin,eval/data/easy_violin_take2.wav,eval/data/easy_violin.mid,violin
+hard_fast_phone,eval/data/hard_fast_phone.wav,eval/data/hard_fast.mid,violin
