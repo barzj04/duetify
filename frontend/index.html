@@ -87,6 +87,14 @@
   #history .h-name { font-weight: 600; font-size: .9rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #history .h-when { font-size: .78rem; color: var(--muted); }
   .empty { color: var(--muted); font-size: .9rem; }
+  #history li { display: flex; align-items: center; gap: .4rem; }
+  #history .h-text { flex: 1; min-width: 0; }
+  #history .h-btn { opacity: 0; border: none; background: none; padding: .25rem .35rem; border-radius: 6px; cursor: pointer; font-size: .95rem; color: var(--muted); }
+  #history li:hover .h-btn, #history .h-btn:focus { opacity: 1; }
+  #history .h-btn:hover { background: var(--line); color: var(--ink); }
+  #history .h-btn.del:hover { background: #fdecec; color: #a3121f; }
+  #history input.h-edit { width: 100%; font: inherit; font-weight: 600; font-size: .9rem; padding: .15rem .35rem; border: 1px solid var(--accent); border-radius: 6px; }
+  @media (hover: none) { #history .h-btn { opacity: 1; } }
   footer { text-align: center; color: var(--muted); font-size: .8rem; padding-bottom: 2rem; }
 </style>
 </head>
@@ -195,13 +203,48 @@ function saveHistory(h) { try { localStorage.setItem("duetify", JSON.stringify(h
 function renderHistory() {
   const h = loadHistory(), ul = $("history");
   ul.innerHTML = h.length ? "" : '<li class="empty">Your sheets will show up here.</li>';
-  h.forEach(item => {
+  h.forEach((item, i) => {
     const li = document.createElement("li");
-    li.innerHTML = `<span class="h-name"></span><span class="h-when">${item.when}</span>`;
+    li.innerHTML = `<div class="h-text"><span class="h-name"></span><span class="h-when">${item.when}</span></div>
+      <button class="h-btn" title="Rename" aria-label="Rename">✎</button>
+      <button class="h-btn del" title="Delete" aria-label="Delete">🗑</button>`;
     li.querySelector(".h-name").textContent = item.name;
-    li.onclick = () => show(item.result);
+    li.querySelector(".h-text").onclick = () => show(item.result);
+    const [renameBtn, delBtn] = li.querySelectorAll(".h-btn");
+    renameBtn.onclick = () => startRename(li, i);
+    delBtn.onclick = () => deleteItem(i);
     ul.appendChild(li);
   });
+}
+
+function startRename(li, i) {
+  const nameEl = li.querySelector(".h-name");
+  const input = document.createElement("input");
+  input.className = "h-edit"; input.value = nameEl.textContent; input.maxLength = 60;
+  nameEl.replaceWith(input); input.focus(); input.select();
+  let done = false;
+  const finish = save => {
+    if (done) return; done = true;
+    const h = loadHistory();
+    if (save && input.value.trim()) { h[i].name = input.value.trim(); saveHistory(h); }
+    renderHistory();
+  };
+  input.onkeydown = e => { if (e.key === "Enter") finish(true); if (e.key === "Escape") finish(false); };
+  input.onblur = () => finish(true);
+  input.onclick = e => e.stopPropagation();
+}
+
+let lastDeleted = null;
+function deleteItem(i) {
+  const h = loadHistory();
+  lastDeleted = { item: h.splice(i, 1)[0], index: i };
+  saveHistory(h); renderHistory();
+  status(`Deleted "${lastDeleted.item.name}". <a href="#" id="undo">Undo</a>`);
+  $("undo").onclick = e => {
+    e.preventDefault();
+    const h2 = loadHistory(); h2.splice(lastDeleted.index, 0, lastDeleted.item);
+    saveHistory(h2); renderHistory(); status("Restored.");
+  };
 }
 
 async function show(result) {
@@ -233,7 +276,9 @@ $("f").onsubmit = async e => {
     await show(data);
     status(`Done in ${((performance.now() - t0) / 1000).toFixed(1)}s`);
     const h = loadHistory();
-    h.unshift({ name: fd.get("part1").name, when: new Date().toLocaleString(), result: data });
+    const base = f => f.name.replace(/\.[^.]+$/, "");
+    const name = fd.get("part2") ? `${base(fd.get("part1"))} + ${base(fd.get("part2"))}` : base(fd.get("part1"));
+    h.unshift({ name, when: new Date().toLocaleString(), result: data });
     saveHistory(h); renderHistory();
   } catch (err) {
     status(err.message, "err");
